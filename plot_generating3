@@ -10,7 +10,7 @@ import pandas as pd
 
 
 class serialPlot:
-    def __init__(self, serialPort='/dev/ttyUSB0', serialBaud=38400, plotLength=100, dataNumBytes=2):
+    def __init__(self, serialPort='COM10', serialBaud=115200, plotLength=100, dataNumBytes=2):
         self.port = serialPort
         self.baud = serialBaud
         self.plotMaxLength = plotLength
@@ -43,7 +43,7 @@ class serialPlot:
             while self.isReceiving != True:
                 time.sleep(0.1)
 
-    def getSerialData(self, frame, lines, lineValueText, lineLabel, timeText):
+    def getSerialData(self, frame, lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText):
         currentTimer = time.perf_counter()
         # the first reading will be erroneous
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
@@ -53,8 +53,11 @@ class serialPlot:
         value = self.rawData
         # we get the latest data point and append it to our array
         self.data.append(value)
-        lines.set_data(range(self.plotMaxLength), self.data)
-        lineValueText.set_text('[' + lineLabel + '] = ' + str(value))
+        lines1.set_data(range(self.plotMaxLength), self.data)
+        lines2.set_data(range(self.plotMaxLength), self.data)
+        lineValueText1.set_text('[' + lineLabel1 + '] = ' + str(value))
+        lineValueText2.set_text('[' + lineLabel2 + '] = ' + str(value))
+
         # self.csvData.append(self.data[-1])
 
     def backgroundThread(self):    # retrieve data
@@ -101,12 +104,16 @@ def main():
     ax.set_xlabel("time")
     ax.set_ylabel("AnalogRead Value")
 
-    lineLabel = 'Current Value'
+    lineLabel1 = 'Channel 1'
+    lineLabel2 = 'Channel 2'
     timeText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
-    lines = ax.plot([], [], label=lineLabel)[0]
-    lineValueText = ax.text(0.50, 0.90, '', transform=ax.transAxes)
+    lines1 = ax.plot([], [], label=lineLabel1)[0]
+    lines2 = ax.plot([], [], label=lineLabel2)[0]
+    lineValueText1 = ax.text(0.50, 0.90, '', transform=ax.transAxes)
+    lineValueText2 = ax.text(0.50, 0.85, '', transform=ax.transAxes)
+
     anim = animation.FuncAnimation(fig, s.getSerialData, fargs=(
-        lines, lineValueText, lineLabel, timeText), interval=pltInterval)    # fargs has to be a tuple
+        lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText), interval=pltInterval)    # fargs has to be a tuple
 
     plt.legend(loc="upper left")
     plt.show()
