@@ -1,11 +1,10 @@
-
-
 from threading import Thread
 import serial
 import time
 import collections
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import pandas as pd
 
 
 class serialPlot:
@@ -17,16 +16,12 @@ class serialPlot:
         self.dataNumBytes = dataNumBytes
         self.rawData = ''
         self.data = collections.deque([0] * plotLength, maxlen=plotLength)
-        self.x_buffer = collections.deque(
-            [0] * plotLength, maxlen=plotLength)
-        self.cur_count = 0
         self.isRun = True
         self.isReceiving = False
         self.thread = None
         self.plotTimer = 0
         self.previousTimer = 0
-        # self.serialConnection = None
-        # self.csvData = []
+        self.csvData = []
 
         print('Trying to connect to: ' + str(serialPort) +
               ' at ' + str(serialBaud) + ' BAUD.')
@@ -35,43 +30,34 @@ class serialPlot:
                 serialPort, serialBaud, timeout=4)
             print('Connected to ' + str(serialPort) +
                   ' at ' + str(serialBaud) + ' BAUD.')
-        except:
+        except Exception as e:
             print("Failed to connect with " + str(serialPort) +
                   ' at ' + str(serialBaud) + ' BAUD.')
+            print(e)
 
     def readSerialStart(self):
         if self.thread is None:
             self.thread = Thread(target=self.backgroundThread)
             self.thread.start()
-        # Block till we start receiving values
-        while self.isReceiving is False:
-            time.sleep(0.1)
+            # Block till we start receiving values
+            while self.isReceiving != True:
+                time.sleep(0.1)
 
-    def getSerialData(self, frame, ax):
+    def getSerialData(self, frame, lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText):
         currentTimer = time.perf_counter()
         # the first reading will be erroneous
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
-
-        # updating data
-        value = self.rawData
-        self.data.append(value)
-        self.x_buffer.append(self.cur_count)
-
-        self.cur_count += 1
-        # plotting new plot
-        plt.cla()
-        plt.plot(self.x_buffer, self.data, label=['Channel 1'])
-        # adding labels, title and text
-        plt.title('STM Analog Read')
-        plt.xlabel("time")
-        plt.ylabel("AnalogRead Value")
-        timeText = plt.text(0.50, 0.95, '', transform=ax.transAxes)
-        lineValueText = plt.text(0.50, 0.90, '', transform=ax.transAxes)
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
-        lineLabel = 'Potentiometer Value'
-        lineValueText.set_text('[' + lineLabel + '] = ' + str(value))
-        # self.csvData.append(self.data[-1])
+        value = self.rawData
+        # we get the latest data point and append it to our array
+        self.data.append(value)
+        lines1.set_data(range(self.plotMaxLength), self.data)
+        # lines2.set_data(range(self.plotMaxLength), self.data)
+        lineValueText1.set_text('[' + lineLabel1 + '] = ' + str(value))
+        # lineValueText2.set_text('[' + lineLabel2 + '] = ' + str(value))
+
+        self.csvData.append(self.data[-1])
 
     def backgroundThread(self):    # retrieve data
         time.sleep(1.0)  # give some buffer time for retrieving data
@@ -81,17 +67,19 @@ class serialPlot:
             data = line.split(',')
             self.rawData = float(data[0])
             self.isReceiving = True
+            # print(self.rawData)
 
     def close(self):
         self.isRun = False
         self.thread.join()
         self.serialConnection.close()
         print('Disconnected...')
-        # df = pd.DataFrame(self.csvData)
-        # df.to_csv('data.csv')
+        df = pd.DataFrame(self.csvData)
+        df.to_csv('measured_data.csv')
 
 
 def main():
+    # portName = 'COM5'     # for windows users
     portName = 'COM10'
     baudRate = 115200
     maxPlotLength = 100
@@ -103,11 +91,29 @@ def main():
 
     # plotting starts below
     pltInterval = 50    # Period at which the plot animation updates [ms]
-    ax = plt.axes()
-    anim = animation.FuncAnimation(plt.gcf(), s.getSerialData, fargs=(
-        ax,), interval=pltInterval)    # fargs has to be a tuple
-    plt.legend(loc="upper left")
+    xmin = 0
+    xmax = maxPlotLength
+    ymin = -(1)
+    ymax = 3000
+    fig = plt.figure()
+    ax = plt.axes(xlim=(xmin, xmax), ylim=(
+        float(ymin - (ymax - ymin) / 10), float(ymax + (ymax - ymin) / 10)))
+    ax.set_title('STM32 Analog Read')
+    ax.set_xlabel("time")
+    ax.set_ylabel("AnalogRead Value")
 
+    lineLabel1 = 'Channel 1'
+    lineLabel2 = 'Channel 2'
+    timeText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
+    lines1 = ax.plot([], [], label=lineLabel1)[0]
+    lines2 = ax.plot([], [], label=lineLabel2)[0]
+    lineValueText1 = ax.text(0.50, 0.90, '', transform=ax.transAxes)
+    lineValueText2 = ax.text(0.50, 0.85, '', transform=ax.transAxes)
+
+    anim = animation.FuncAnimation(fig, s.getSerialData, fargs=(
+        lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText), interval=pltInterval)    # fargs has to be a tuple
+
+    plt.legend(loc="upper left")
     plt.show()
     s.close()
 
