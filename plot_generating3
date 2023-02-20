@@ -1,15 +1,14 @@
-
 from threading import Thread
 import serial
 import time
 import collections
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import struct
 import pandas as pd
 
 
 class serialPlot:
+
     def __init__(self, serialPort='COM10', serialBaud=115200, plotLength=100, dataNumBytes=2):
         self.port = serialPort
         self.baud = serialBaud
@@ -31,12 +30,13 @@ class serialPlot:
                 serialPort, serialBaud, timeout=4)
             print('Connected to ' + str(serialPort) +
                   ' at ' + str(serialBaud) + ' BAUD.')
-        except:
+        except Exception as e:
             print("Failed to connect with " + str(serialPort) +
                   ' at ' + str(serialBaud) + ' BAUD.')
+            print(e)
 
     def readSerialStart(self):
-        if self.thread == None:
+        if self.thread is None:
             self.thread = Thread(target=self.backgroundThread)
             self.thread.start()
             # Block till we start receiving values
@@ -80,7 +80,6 @@ class serialPlot:
 
 def main():
     # portName = 'COM5'     # for windows users
-
     portName = 'COM10'
     baudRate = 115200
     maxPlotLength = 100
@@ -95,7 +94,7 @@ def main():
     xmin = 0
     xmax = maxPlotLength
     ymin = -(1)
-    ymax = 4
+    ymax = 3000
     fig = plt.figure()
     ax = plt.axes(xlim=(xmin, xmax), ylim=(
         float(ymin - (ymax - ymin) / 10), float(ymax + (ymax - ymin) / 10)))
@@ -116,7 +115,6 @@ def main():
 
     plt.legend(loc="upper left")
     plt.show()
-
     s.close()
 
 
