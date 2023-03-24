@@ -49,14 +49,12 @@ class serialPlot:
         # the first reading will be erroneous
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
-        timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')      
+        timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')     
         # we get the latest data point and append it to our array
-        for count, buffer in enumerate(self.data_buffers):
+        
+        for count, [buffer, line, lineValueText] in enumerate(zip(self.data_buffers, lines, lineValueTexts)):
             buffer.append(self.rawData[count])
-        for count, line in enumerate(lines):
             line.set_data(range(self.plotMaxLength), self.data_buffers[count])
-
-        for count, lineValueText in enumerate(lineValueTexts):
             lineValueText.set_text('[' + lineLabels[count] + '] = ' + str(self.rawData[count]))
             
         # self.csvData.append(self.data1[-1])
