@@ -17,8 +17,6 @@ class serialPlot:
         self.dataNumBytes = dataNumBytes
         self.rawData = ''
         self.data_buffers = [collections.deque([0] * plotLength, maxlen=plotLength) for channel_num in range(NUMBER_OF_SENSORS)]
-        # self.data1 = collections.deque([0] * plotLength, maxlen=plotLength)
-        # self.data2 = collections.deque([0] * plotLength, maxlen=plotLength)
         self.isRun = True
         self.isReceiving = False
         self.thread = None
