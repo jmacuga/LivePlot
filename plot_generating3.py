@@ -9,13 +9,14 @@ import pandas as pd
 
 class serialPlot:
 
-    def __init__(self, serialPort='COM10', serialBaud=115200, plotLength=100, dataNumBytes=2):
+    def __init__(self, serialPort='/dev/ttyACM0', serialBaud=115200, plotLength=100, dataNumBytes=2):
         self.port = serialPort
         self.baud = serialBaud
         self.plotMaxLength = plotLength
         self.dataNumBytes = dataNumBytes
         self.rawData = ''
-        self.data = collections.deque([0] * plotLength, maxlen=plotLength)
+        self.data1 = collections.deque([0] * plotLength, maxlen=plotLength)
+        self.data2 = collections.deque([0] * plotLength, maxlen=plotLength)
         self.isRun = True
         self.isReceiving = False
         self.thread = None
@@ -49,23 +50,30 @@ class serialPlot:
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
-        value = self.rawData
+        value1 = self.rawData[0]
+        value2= self.rawData[1]        
         # we get the latest data point and append it to our array
-        self.data.append(value)
-        lines1.set_data(range(self.plotMaxLength), self.data)
-        # lines2.set_data(range(self.plotMaxLength), self.data)
-        lineValueText1.set_text('[' + lineLabel1 + '] = ' + str(value))
-        # lineValueText2.set_text('[' + lineLabel2 + '] = ' + str(value))
+        self.data1.append(value1)
+        self.data2.append(value2)
+        lines1.set_data(range(self.plotMaxLength), self.data1)
+        lines2.set_data(range(self.plotMaxLength), self.data2)
+        lineValueText1.set_text('[' + lineLabel1 + '] = ' + str(value1))
+        lineValueText2.set_text('[' + lineLabel2 + '] = ' + str(value2))
 
-        self.csvData.append(self.data[-1])
+        self.csvData.append(self.data1[-1])
 
     def backgroundThread(self):    # retrieve data
         time.sleep(1.0)  # give some buffer time for retrieving data
         self.serialConnection.reset_input_buffer()
         while (self.isRun):
-            line = self.serialConnection.readline().decode('utf-8')[:-2]
+            line = self.serialConnection.readline().decode('utf-8')[:-1]
+            line.strip()
             data = line.split(',')
-            self.rawData = float(data[0])
+            if len(data) == 1:
+                self.rawData = (float(data[0]))
+            else:
+                self.rawData = (float(data[0]), float(data[1]))
+                
             self.isReceiving = True
             # print(self.rawData)
 
@@ -80,7 +88,7 @@ class serialPlot:
 
 def main():
     # portName = 'COM5'     # for windows users
-    portName = 'COM10'
+    portName = '/dev/ttyACM0'
     baudRate = 115200
     maxPlotLength = 100
     dataNumBytes = 4        # number of bytes of 1 data point
@@ -94,9 +102,9 @@ def main():
     xmin = 0
     xmax = maxPlotLength
     ymin = -(1)
-    ymax = 3000
+    ymax = 1
     fig = plt.figure()
-    ax = plt.axes(xlim=(xmin, xmax), ylim=(
+    ax = plt.axes(xlim=(xmin, xmax), ylim=( 
         float(ymin - (ymax - ymin) / 10), float(ymax + (ymax - ymin) / 10)))
     ax.set_title('STM32 Analog Read')
     ax.set_xlabel("time")
