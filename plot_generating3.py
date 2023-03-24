@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pandas as pd
 
+NUMBER_OF_SENSORS = 2
 
 class serialPlot:
 
@@ -15,8 +16,9 @@ class serialPlot:
         self.plotMaxLength = plotLength
         self.dataNumBytes = dataNumBytes
         self.rawData = ''
-        self.data1 = collections.deque([0] * plotLength, maxlen=plotLength)
-        self.data2 = collections.deque([0] * plotLength, maxlen=plotLength)
+        self.data_buffers = [collections.deque([0] * plotLength, maxlen=plotLength) for channel_num in range(NUMBER_OF_SENSORS)]
+        # self.data1 = collections.deque([0] * plotLength, maxlen=plotLength)
+        # self.data2 = collections.deque([0] * plotLength, maxlen=plotLength)
         self.isRun = True
         self.isReceiving = False
         self.thread = None
@@ -44,23 +46,22 @@ class serialPlot:
             while self.isReceiving != True:
                 time.sleep(0.1)
 
-    def getSerialData(self, frame, lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText):
+    def getSerialData(self, frame, lines, lineValueTexts, lineLabels, timeText):
         currentTimer = time.perf_counter()
         # the first reading will be erroneous
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
-        timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
-        value1 = self.rawData[0]
-        value2= self.rawData[1]        
+        timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')      
         # we get the latest data point and append it to our array
-        self.data1.append(value1)
-        self.data2.append(value2)
-        lines1.set_data(range(self.plotMaxLength), self.data1)
-        lines2.set_data(range(self.plotMaxLength), self.data2)
-        lineValueText1.set_text('[' + lineLabel1 + '] = ' + str(value1))
-        lineValueText2.set_text('[' + lineLabel2 + '] = ' + str(value2))
+        for count, buffer in enumerate(self.data_buffers):
+            buffer.append(self.rawData[count])
+        for count, line in enumerate(lines):
+            line.set_data(range(self.plotMaxLength), self.data_buffers[count])
 
-        self.csvData.append(self.data1[-1])
+        for count, lineValueText in enumerate(lineValueTexts):
+            lineValueText.set_text('[' + lineLabels[count] + '] = ' + str(self.rawData[count]))
+            
+        # self.csvData.append(self.data1[-1])
 
     def backgroundThread(self):    # retrieve data
         time.sleep(1.0)  # give some buffer time for retrieving data
@@ -69,11 +70,12 @@ class serialPlot:
             line = self.serialConnection.readline().decode('utf-8')[:-1]
             line.strip()
             data = line.split(',')
-            if len(data) == 1:
-                self.rawData = (float(data[0]))
-            else:
+            try:
                 self.rawData = (float(data[0]), float(data[1]))
-                
+            except ValueError:
+                return
+            except TypeError:
+                return
             self.isReceiving = True
             # print(self.rawData)
 
@@ -87,11 +89,13 @@ class serialPlot:
 
 
 def main():
+
     # portName = 'COM5'     # for windows users
     portName = '/dev/ttyACM0'
     baudRate = 115200
     maxPlotLength = 100
-    dataNumBytes = 4        # number of bytes of 1 data point
+    dataNumBytes = 4  
+    # number of bytes of 1 data point
     # initializes all required variables
     s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes)
     # starts background thread
@@ -110,17 +114,13 @@ def main():
     ax.set_xlabel("time")
     ax.set_ylabel("AnalogRead Value")
 
-    lineLabel1 = 'Channel 1'
-    lineLabel2 = 'Channel 2'
+    labels = [f'Channel {sen_num + 1}' for sen_num in range(NUMBER_OF_SENSORS)]
     timeText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
-    lines1 = ax.plot([], [], label=lineLabel1)[0]
-    lines2 = ax.plot([], [], label=lineLabel2)[0]
-    lineValueText1 = ax.text(0.50, 0.90, '', transform=ax.transAxes)
-    lineValueText2 = ax.text(0.50, 0.85, '', transform=ax.transAxes)
+    lines = [ax.plot([], [], label=labels[sen_num])[0] for sen_num in range(NUMBER_OF_SENSORS)]
+    offset = 0.05
+    lineValueTexts = [ax.text(0.50, 0.90 - offset * sen_num, '', transform=ax.transAxes) for sen_num in range(NUMBER_OF_SENSORS) ]
 
-    anim = animation.FuncAnimation(fig, s.getSerialData, fargs=(
-        lines1, lines2, lineValueText1, lineValueText2, lineLabel1, lineLabel2, timeText), interval=pltInterval)    # fargs has to be a tuple
-
+    anim = animation.FuncAnimation(fig, s.getSerialData, fargs=(lines, lineValueTexts, labels, timeText), interval=pltInterval)    # fargs has to be a tuple
     plt.legend(loc="upper left")
     plt.show()
     s.close()
