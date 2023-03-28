@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import pandas as pd
 
-NUMBER_OF_SENSORS = 2
+NUMBER_OF_SENSORS = 3
 
 class serialPlot:
 
-    def __init__(self, serialPort='/dev/ttyACM0', serialBaud=115200, plotLength=100, dataNumBytes=2):
+    def __init__(self, serialPort='/dev/ttyACM0', serialBaud=115200, plotLength=100, dataNumBytes=NUMBER_OF_SENSORS):
         self.port = serialPort
         self.baud = serialBaud
         self.plotMaxLength = plotLength
@@ -51,7 +51,8 @@ class serialPlot:
         self.previousTimer = currentTimer
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')     
         # we get the latest data point and append it to our array
-        
+        # plot_readings(lines, lineValueTexts, lineLabels, timeText)
+        # plot_sum()
         for count, [buffer, line, lineValueText] in enumerate(zip(self.data_buffers, lines, lineValueTexts)):
             buffer.append(self.rawData[count])
             line.set_data(range(self.plotMaxLength), self.data_buffers[count])
@@ -67,11 +68,11 @@ class serialPlot:
             line.strip()
             data = line.split(',')
             try:
-                self.rawData = (float(data[0]), float(data[1]))
-            except ValueError:
-                return
+                self.rawData = [float(data[i]) for i in range(NUMBER_OF_SENSORS)]
             except TypeError:
-                return
+                self.rawData = [0.0 for _ in range(NUMBER_OF_SENSORS)]
+            except ValueError:
+                self.rawData = [0.0 for _ in range(NUMBER_OF_SENSORS)]
             self.isReceiving = True
             # print(self.rawData)
 
@@ -102,7 +103,7 @@ def main():
     xmin = 0
     xmax = maxPlotLength
     ymin = -(1)
-    ymax = 1
+    ymax = 3.3
     fig = plt.figure()
     ax = plt.axes(xlim=(xmin, xmax), ylim=( 
         float(ymin - (ymax - ymin) / 10), float(ymax + (ymax - ymin) / 10)))
