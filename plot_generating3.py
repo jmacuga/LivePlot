@@ -24,6 +24,9 @@ class serialPlot:
         self.data_buffers = [collections.deque(
             [0] * plotLength, maxlen=plotLength)
             for _ in range(NUMBER_OF_SENSORS)]
+        self.mass_buffers = [collections.deque(
+            [0] * plotLength, maxlen=plotLength)
+            for _ in range(NUMBER_OF_SENSORS)]
         self.isRun = True
         self.isReceiving = False
         self.thread = None
@@ -61,14 +64,37 @@ class serialPlot:
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
         timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
-        # self.convert_readings()
-        # plot_sum()
+
         for count, [buffer, line, lineValueText] in enumerate(
                 zip(self.data_buffers, lines, lineValueTexts)):
             buffer.append(self.rawData[count])
             line.set_data(range(self.plotMaxLength), self.data_buffers[count])
             lineValueText.set_text(
                 '[' + lineLabels[count] + '] = ' + str(self.rawData[count]))
+        # self.csvData.append(self.data1[-1])
+
+    def plot_mass(self,
+                  frame,
+                  lines,
+                  lineValueTexts,
+                  lineLabels,
+                  timeText):
+        currentTimer = time.perf_counter()
+        self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
+        self.previousTimer = currentTimer
+        timeText.set_text('Plot Interval = ' + str(self.plotTimer) + 'ms')
+
+        for count, [buffer, mass_buffer, line, lineValueText] in enumerate(
+            zip(self.data_buffers,
+                self.mass_buffers,
+                lines,
+                lineValueTexts)):
+            mass = self.get_mass_power2(self.rawData[count])
+            mass_buffer.append(mass)
+
+            line.set_data(range(self.plotMaxLength), self.mass_buffers[count])
+            lineValueText.set_text(
+                '[' + lineLabels[count] + '] = ' + str(mass))
         # self.csvData.append(self.data1[-1])
 
     def backgroundThread(self):    # retrieve data
@@ -95,6 +121,16 @@ class serialPlot:
         print('Disconnected...')
         df = pd.DataFrame(self.csvData)
         df.to_csv('measured_data.csv')
+
+    def get_mass_power2(self, voltage):
+        # regression equation: f(X) = a*x^b+c
+        if voltage == 0.0:
+            return 0.0
+        a = -0.856600000000000
+        b = -0.893800000000000
+        c = 3.135400000000000
+        mass = pow((voltage - c) / a, 1/b)
+        return mass
 
 
 def main():
@@ -133,7 +169,10 @@ def main():
                               transform=ax.transAxes)
                       for sen_num in range(NUMBER_OF_SENSORS)]
 
-    _ = animation.FuncAnimation(fig, s.plot_serial_data, fargs=(
+    # _ = animation.FuncAnimation(fig, s.plot_serial_data, fargs=(
+    #     lines, lineValueTexts, labels, timeText), interval=pltInterval)
+
+    mass_animation = animation.FuncAnimation(fig, s.plot_mass, fargs=(
         lines, lineValueTexts, labels, timeText), interval=pltInterval)
     plt.legend(loc="upper left")
     plt.show()
