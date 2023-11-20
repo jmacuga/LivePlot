@@ -10,7 +10,7 @@ def save_to_csv(output_lines):
         for line in output_lines:
             reading_1, reading_2 = line.split(',')
             readings.append([reading_1, reading_2])
-        csv_writer.writerows(readings)  
+        csv_writer.writerows(readings)
 
 
 def save_serial_data(port, baudrate, timeout, samples):
